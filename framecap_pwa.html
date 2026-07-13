@@ -207,7 +207,10 @@
         <div class="subtitle">frame-accurate screenshot • PWA ready</div>
       </div>
     </div>
-    <button id="installBtnHeader" class="pill installBtn" style="display:none">Install</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button id="changeVideoBtn" class="pill" style="display:none" title="Load a different video">↺ New video</button>
+      <button id="installBtnHeader" class="pill installBtn" style="display:none">Install</button>
+    </div>
   </div>
 
   <div class="stage" id="stage">
@@ -255,6 +258,7 @@
         </div>
 
         <div class="btnGroup">
+          <button id="changeVideoBtnInline" class="pill" style="display:none" title="Load new video">↺ Video</button>
           <div class="formatToggle">
             <button id="pngBtn" class="active">PNG</button>
             <button id="jpegBtn">JPEG</button>
@@ -342,6 +346,8 @@
   const frameInfo = document.getElementById('frameInfo');
   const installBtn = document.getElementById('installBtn');
   const installBtnHeader = document.getElementById('installBtnHeader');
+  const changeVideoBtn = document.getElementById('changeVideoBtn');
+  const changeVideoBtnInline = document.getElementById('changeVideoBtnInline');
 
   let fileName = 'No file selected';
   let videoUrl = null;
@@ -508,6 +514,33 @@
     video.addEventListener('play', ()=>{ lastMediaTime=null; try{ video.requestVideoFrameCallback(onFrame);}catch(e){} });
   }
 
+  function resetVideo(){
+    try{ video.pause(); }catch(e){}
+    if(videoUrl){ try{ URL.revokeObjectURL(videoUrl); }catch(e){} videoUrl=null; }
+    video.removeAttribute('src');
+    try{ video.load(); }catch(e){}
+    video.classList.remove('ready');
+    hasFile=false; ready=false; fileName='No file selected';
+    placeholder.classList.remove('hide');
+    placeholderTitle.textContent='Drop a video to start';
+    loadingStatus.textContent='';
+    if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+    curTimeEl.innerHTML='00:00<span class="ms">.000</span>';
+    durTimeEl.textContent='00:00.000';
+    scrubFill.style.width='0%'; scrubHandle.style.left='0%';
+    frameInfo.textContent='– f • – fps';
+    timeInput.value='';
+    if(changeVideoBtn) changeVideoBtn.style.display='none';
+    if(changeVideoBtnInline) changeVideoBtnInline.style.display='none';
+    fileInput.value='';
+    safeUpdateButtons();
+  }
+  function handleChangeVideo(){
+    // keep captures? user might want to keep them, but reset video only
+    resetVideo();
+    // open picker in same user gesture
+    setTimeout(()=>{ try{ fileInput.click(); }catch(e){} }, 30);
+  }
   function loadFile(file){
     if (!file.type.startsWith('video/')) { toast('Please select a video file'); return; }
     if (videoUrl) URL.revokeObjectURL(videoUrl);
@@ -522,6 +555,8 @@
   }
   fileInput.addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) loadFile(f); e.target.value=''; });
   selectBtn.addEventListener('click', () => fileInput.click());
+  if(changeVideoBtn) changeVideoBtn.addEventListener('click', handleChangeVideo);
+  if(changeVideoBtnInline) changeVideoBtnInline.addEventListener('click', handleChangeVideo);
   stage.addEventListener('dragover', (e)=>{ e.preventDefault(); placeholder.classList.add('drag'); });
   stage.addEventListener('dragleave', ()=> placeholder.classList.remove('drag'));
   stage.addEventListener('drop', (e)=>{ e.preventDefault(); placeholder.classList.remove('drag'); const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) loadFile(f); });
@@ -533,6 +568,8 @@
     ready = true;
     video.classList.add('ready');
     placeholder.classList.add('hide');
+    if(changeVideoBtn) changeVideoBtn.style.display='';
+    if(changeVideoBtnInline) changeVideoBtnInline.style.display='';
     safeUpdateButtons();
     updateProgressPrecise();
     toast(`Loaded ${fileName} • ${formatTime(video.duration,true)} • ${video.videoWidth}×${video.videoHeight}`);
@@ -630,7 +667,7 @@
     timeInput.value = txt; timeInput.focus(); timeInput.select();
   });
 
-  // Capture (fixed + thumb safe - prevents black + iPad 404)
+  // Capture (fixed + thumb safe - prevents black thumbs)
   async function captureFrame(t){
     const w = video.videoWidth || video.clientWidth || 1280;
     const h = video.videoHeight || video.clientHeight || 720;

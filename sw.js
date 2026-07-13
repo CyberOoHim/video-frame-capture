@@ -19,11 +19,8 @@ self.addEventListener('activate', e=>{
 self.addEventListener('fetch', e=>{
   const url = e.request.url;
   if (e.request.method !== 'GET') return;
-  // iOS fix: NEVER intercept blob/data - would make thumbs black
   if (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('chrome-extension:') || url.startsWith('moz-extension:')) return;
-  // Only same-origin
   if (!url.startsWith(self.location.origin)) return;
-  // Navigation requests (iPad home screen launch): network first, fallback to cached index
   if (e.request.mode === 'navigate' || e.request.destination === 'document') {
     e.respondWith(
       fetch(e.request).then(r=>{
@@ -35,7 +32,6 @@ self.addEventListener('fetch', e=>{
     );
     return;
   }
-  // For assets: cache-first
   e.respondWith(
     caches.match(e.request).then(cached=>{
       if (cached) return cached;
