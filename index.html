@@ -633,7 +633,7 @@
     timeInput.value = txt; timeInput.focus(); timeInput.select();
   });
 
-  // Capture (fixed + thumbnail safe for PWA)
+  // Capture (fixed)
   async function captureFrame(t){
     const w = video.videoWidth || video.clientWidth || 1280;
     const h = video.videoHeight || video.clientHeight || 720;
@@ -643,37 +643,14 @@
     if(!ctx){ toast('Canvas not supported'); return; }
     try{ ctx.drawImage(video,0,0,w,h); } catch(e){ toast('Cannot draw this frame'); return; }
     const mime=format==='png'?'image/png':'image/jpeg'; const ext=format==='png'?'png':'jpg';
-
-    // Create thumbnail dataURL FIRST (synchronous, SW-safe, never goes black)
-    // Downscale for thumbnail to keep gallery light - max 480px wide
-    let thumbDataUrl;
-    try{
-      const maxThumbW = 480;
-      if (w > maxThumbW) {
-        const thumbCanvas = document.createElement('canvas');
-        const scale = maxThumbW / w;
-        thumbCanvas.width = maxThumbW;
-        thumbCanvas.height = Math.round(h * scale);
-        const tctx = thumbCanvas.getContext('2d');
-        tctx.drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
-        thumbDataUrl = thumbCanvas.toDataURL('image/jpeg', 0.72);
-      } else {
-        thumbDataUrl = canvas.toDataURL('image/jpeg', 0.72);
-      }
-    } catch(e){
-      // fallback: use full canvas as jpeg
-      try { thumbDataUrl = canvas.toDataURL('image/jpeg', 0.6); } catch(e2){ thumbDataUrl = ''; }
-    }
-
     const blob=await new Promise((resolve,reject)=>{
       let done=false; const timer=setTimeout(()=>{ if(done) return; done=true; reject(new Error('Encoding timed out')); },3500);
       try{ canvas.toBlob((b)=>{ if(done) return; done=true; clearTimeout(timer); b?resolve(b):reject(new Error('Encoding failed')); }, mime, format==='jpeg'?0.92:1); }
       catch(e){ if(done) return; done=true; clearTimeout(timer); reject(e); }
     });
     const base=fileName.replace(/\.[^/.]+$/,'')||'framecap'; const filename=`${base}_${filenameSafeTime(t)}.${ext}`; const url=URL.createObjectURL(blob);
-    // store both: url for download, thumb for display (never black, survives SW)
-    captures.unshift({id:Date.now()+'-'+Math.random().toString(36).slice(2), url, thumb: thumbDataUrl, filename, time:t, width:w, height:h}); captures=captures.slice(0,24); renderGallery();
-    const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ document.body.removeChild(a); }, 100); toast(`Captured at ${formatTime(t,true)}`);
+    captures.unshift({id:Date.now()+'-'+Math.random().toString(36).slice(2), url, filename, time:t, width:w, height:h}); captures=captures.slice(0,24); renderGallery();
+    const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); toast(`Captured at ${formatTime(t,true)}`);
   }
   async function handleCapture(){
     if(capturing) return; if(!ready){ toast('No video loaded'); return; } if(video.readyState<2){ toast("Video isn't ready yet"); return; }
@@ -693,15 +670,9 @@
     countPill.textContent=captures.length+(captures.length===1?' frame':' frames');
     if(captures.length===0){ emptyState.style.display=''; gallery.style.display='none'; gallery.innerHTML=''; return; }
     emptyState.style.display='none'; gallery.style.display='grid'; gallery.innerHTML='';
-    captures.forEach((c)=>{
-      const card=document.createElement('div'); card.className='card';
-      // Use thumb dataURL for display (SW-safe, never black), url for download
-      const displaySrc = c.thumb || c.url;
-      card.innerHTML=`
-        <div class="thumbWrap"><img src="${displaySrc}" alt="${c.filename}" loading="eager" decoding="sync" title="${c.filename}" onerror="this.style.opacity='0.2'"><button class="removeBtn" data-id="${c.id}" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button><a class="dlBtn" href="${c.url}" download="${c.filename}" title="Download ${c.filename}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div><div class="cardMeta"><div class="fn" title="${c.filename}">${c.filename}</div><div class="info">${formatTime(c.time,true)} • ${c.width}×${c.height}</div></div>`;
-      gallery.appendChild(card);
-    });
-    gallery.querySelectorAll('.removeBtn').forEach((btn)=>{ btn.addEventListener('click',()=>{ const id=btn.getAttribute('data-id'); const found=captures.find(c=>c.id===id); if(found && found.url) try{ URL.revokeObjectURL(found.url); }catch(e){} captures=captures.filter(c=>c.id!==id); renderGallery(); }); });
+    captures.forEach((c)=>{ const card=document.createElement('div'); card.className='card'; card.innerHTML=`
+        <div class="thumbWrap"><img src="${c.url}" alt="${c.filename}" loading="lazy" title="${c.filename}"><button class="removeBtn" data-id="${c.id}" title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button><a class="dlBtn" href="${c.url}" download="${c.filename}" title="Download ${c.filename}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div><div class="cardMeta"><div class="fn" title="${c.filename}">${c.filename}</div><div class="info">${formatTime(c.time,true)} • ${c.width}×${c.height}</div></div>`; gallery.appendChild(card); });
+    gallery.querySelectorAll('.removeBtn').forEach((btn)=>{ btn.addEventListener('click',()=>{ const id=btn.getAttribute('data-id'); const found=captures.find(c=>c.id===id); if(found) URL.revokeObjectURL(found.url); captures=captures.filter(c=>c.id!==id); renderGallery(); }); });
   }
   function updateButtons(){ [firstBtn,lastBtn,back5Btn,fwd5Btn,playBtn].forEach(b=>{ b.disabled=!ready; }); captureBtn.disabled=!ready||capturing; captureLabel.textContent=capturing?'Capturing…':'Capture'; timeGoBtn.disabled=!ready; timeInput.disabled=!ready; copyTimeBtn.disabled=!ready; }
   window.addEventListener('keydown',(e)=>{

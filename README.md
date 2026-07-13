@@ -9,7 +9,7 @@
 ![No Deps](https://img.shields.io/badge/zero%20dependencies-23c55e?style=flat-square)
 ![License MIT](https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square)
 
-Live Demo: serve `framecap_pwa.html` locally or deploy to any static host. See **Quick Start**.
+Live Demo: serve `index.html` locally or deploy to any static host. See **Quick Start**.
 
 ---
 
@@ -70,13 +70,13 @@ Click the main timecode to copy it into the input. Enter = Go.
 ### Option A — Just open it
 ```bash
 # download these 5 files keeping structure:
-framecap_pwa.html
+index.html
 manifest.webmanifest
 sw.js
 pwa/icon-192.png
 pwa/icon-512.png
 
-# then double-click framecap_pwa.html
+# then double-click index.html
 # (PWA install requires http, so use Option B for install)
 ```
 
@@ -86,7 +86,7 @@ pwa/icon-512.png
 npx serve .
 # or
 python -m http.server 8000
-# open http://localhost:8000/framecap_pwa.html
+# open http://localhost:8000/index.html
 ```
 
 Deploy to **Vercel / Netlify / GitHub Pages / Cloudflare Pages** — any static host works. Keep `pwa/` folder next to HTML.
@@ -97,7 +97,7 @@ Deploy to **Vercel / Netlify / GitHub Pages / Cloudflare Pages** — any static 
 
 ```
 /
-├── framecap_pwa.html      # main app (single-file, zero deps)
+├── index.html      # main app (single-file, zero deps)
 ├── manifest.webmanifest   # PWA metadata
 ├── sw.js                  # service worker v3 (blob/data safe)
 └── pwa/
